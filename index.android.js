@@ -33,7 +33,13 @@ class dragDropExample extends Component {
                     moveX: this.state.pan.x,
                     moveY: this.state.pan.y
                 }
-            ])
+            ]),
+            onPanResponderStart: (e, gestureState) => {
+                this.state.pan.setOffset({
+                    x: -e.nativeEvent.locationX,
+                    y: -e.nativeEvent.locationY
+                });
+            }
         });
 
     }
