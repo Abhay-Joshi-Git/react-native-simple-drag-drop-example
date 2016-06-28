@@ -12,33 +12,72 @@ import {
 import data from './mock/data.js';
 
 let Window = Dimensions.get('window');
+const rowHeight = 60;
+const dropContainerHeight = 40
 
+updatedData = data.map((item, index) => {
+    return {
+        ...item,
+        index: index
+    }
+})
+
+console.log(updatedData);
 
 class dragDropExample extends Component {
     constructor() {
         super();
 
         var ds = new ListView.DataSource({
-            rowHasChanged: (r1, r2) => r1 !== r2
+            rowHasChanged: (r1, r2) => {
+                return ((r1 !== r2) ||
+                    (r2.index == this.state.prevDropRowIndex) ||
+                    (r2.index == this.state.currDropRowIndex))
+            }
         })
 
         this.state = {
-            dataSource: ds.cloneWithRows(data),
+            dataSource: ds.cloneWithRows(updatedData),
             pan: new Animated.ValueXY({
                 x: 10,
                 y: Window.height - 60
-            })
+            }),
+            prevDropRowIndex: -1,
+            currDropRowIndex: -1
         }
+        this._panResponderCreate();
+        this.layoutMap = [];
+        this._bindFunctions();
+    }
 
+    _panResponderCreate() {
         this._panResponder = PanResponder.create({
             onStartShouldSetPanResponder: () => true,
-            onPanResponderMove: Animated.event([
-                null,
-                {
-                    moveX: this.state.pan.x,
-                    moveY: this.state.pan.y
+            onPanResponderMove: (e, gestureState) => {
+                this.state.pan.setValue({
+                    x: gestureState.moveX,
+                    y: gestureState.moveY
+                });
+                if ((this.layoutMap.length > 0) &&
+                    ((this.layoutMap.length * rowHeight) > (gestureState.moveY + 60))) {
+                        let dropIndex = Math.floor((gestureState.moveY / rowHeight) + 1);
+                        console.log(this.state.currDropRowIndex, dropIndex)
+                         if ((this.state.currDropRowIndex != dropIndex) ||
+                            (this.state.currDropRowIndex != this.state.prevDropRowIndex)) {
+                            this.setState({
+                                prevDropRowIndex: this.state.currDropRowIndex,
+                                currDropRowIndex:  dropIndex,
+                                dataSource: this.state.dataSource.cloneWithRows(updatedData)
+                            })
+                         }
+                } else if (this.state.currDropRowIndex != -1) {
+                    this.setState({
+                        prevDropRowIndex: -1,
+                        currDropRowIndex: -1,
+                        dataSource: this.state.dataSource.cloneWithRows(updatedData)
+                    })
                 }
-            ]),
+            },
             onPanResponderStart: (e, gestureState) => {
                 this.state.pan.setOffset({
                     x: -e.nativeEvent.locationX,
@@ -46,9 +85,14 @@ class dragDropExample extends Component {
                 });
             }
         });
+    }
 
+    _bindFunctions() {
         this.renderRow = this._renderRow.bind(this);
-
+        this.rowLayout = this._rowLayout.bind(this);
+        this.logLayoutAndReturnNull = this._logLayoutAndReturnNull.bind(this);
+        this.renderRowDropContainer = this._renderRowDropContainer.bind(this);
+        this.renderActualRow = this._renderActualRow.bind(this);
     }
 
     render() {
@@ -84,7 +128,22 @@ class dragDropExample extends Component {
         )
     }
 
-    _renderRow(item) {
+    _renderRow(item, section, index) {
+        return (
+            <View
+                style={{
+                    flex: 1,
+                    height: (index == this.state.currDropRowIndex) ? rowHeight + dropContainerHeight : rowHeight
+                }}
+                onLayout={(e) => this._rowLayout(e, index)}
+            >
+                {this.renderRowDropContainer(index)}
+                {this.renderActualRow(item, index)}
+            </View>
+        )
+    }
+
+    _renderActualRow(item, rowIndex) {
         return (
             <View style={styles.listItemContainer}>
                 <View>
@@ -106,6 +165,32 @@ class dragDropExample extends Component {
         )
     }
 
+    _renderRowDropContainer(rowIndex) {
+        if (rowIndex == this.state.currDropRowIndex) {
+            return (
+                <View
+                    style={styles.rowDropContainer}
+                >
+                    <Text>
+                        Drop here!!
+                    </Text>
+                </View>
+            )
+        } else {
+            return null
+        }
+    }
+
+    _rowLayout(e, index) {
+        console.log(index, e.nativeEvent.layout);
+        this.layoutMap[index] = e.nativeEvent.layout
+    }
+
+    _logLayoutAndReturnNull(index) {
+        console.log('layout', this.layoutMap[index]);
+        return null;
+    }
+
 }
 
 const styles = StyleSheet.create({
@@ -123,9 +208,15 @@ const styles = StyleSheet.create({
     listItemContainer: {
         backgroundColor: 'rgb(240, 240, 240)',
         alignItems: 'flex-start',
-        flex: 1,
         marginBottom: 2,
-        paddingLeft: 5
+        paddingLeft: 5,
+        height: rowHeight
+    },
+    rowDropContainer: {
+        height: dropContainerHeight
+    },
+    rowContainer: {
+        flex: 1
     },
     listViewContainer: {
         flex: 1,
