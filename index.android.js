@@ -13,7 +13,8 @@ import data from './mock/data.js';
 
 let Window = Dimensions.get('window');
 const rowHeight = 60;
-const dropContainerHeight = 40
+const dropContainerHeight = 40;
+const rowDropEnableHeight = rowHeight / 2;
 
 updatedData = data.map((item, index) => {
     return {
@@ -59,8 +60,8 @@ class dragDropExample extends Component {
                     y: gestureState.moveY
                 });
                 if ((this.layoutMap.length > 0) &&
-                    ((this.layoutMap.length * rowHeight) > (gestureState.moveY + 60))) {
-                        let dropIndex = Math.floor((gestureState.moveY / rowHeight) + 1);
+                    ((this.layoutMap.length * rowHeight) > (gestureState.moveY + rowHeight - rowDropEnableHeight))) {
+                        let dropIndex = Math.floor(((gestureState.moveY - rowDropEnableHeight) / rowHeight) + 1);
                         console.log(this.state.currDropRowIndex, dropIndex)
                          if ((this.state.currDropRowIndex != dropIndex) ||
                             (this.state.currDropRowIndex != this.state.prevDropRowIndex)) {
