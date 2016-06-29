@@ -7,7 +7,8 @@ import {
   ListView,
   Dimensions,
   PanResponder,
-  Animated
+  Animated,
+  TouchableHighlight
 } from 'react-native';
 import data from './mock/data.js';
 import reactMixin from 'react-mixin';
@@ -25,7 +26,8 @@ const scrollGutter = 10;
 updatedData = data.map((item, index) => {
     return {
         ...item,
-        index: index
+        index: index,
+        selected: false
     }
 })
 
@@ -63,7 +65,7 @@ class dragDropExample extends Component {
                 x: gestureState.moveX,
                 y: gestureState.moveY
             });
-        } 
+        }
         if ((this.layoutMap.length > 0) ) {
                 //TODO - implement on the basis of layoutMap or get row present on the top
                 let dropIndex = Math.ceil((gestureState.moveY - rowDropEnableHeight + this.totalScrollOffSet) / rowHeight);
@@ -181,6 +183,7 @@ class dragDropExample extends Component {
             <View
                 style={{
                     flex: 1,
+                    marginBottom: 2,
                     height: (index == this.state.currDropRowIndex) ? rowHeight + dropContainerHeight : rowHeight
                 }}
                 onLayout={(e) => this._rowLayout(e, index)}
@@ -193,24 +196,50 @@ class dragDropExample extends Component {
 
     _renderActualRow(item, rowIndex) {
         return (
-            <View style={styles.listItemContainer}>
+            <TouchableHighlight
+                style={[
+                    styles.listItemContainer,
+                    {backgroundColor: item.selected ? 'grey' : 'rgb(230, 240, 240)'}
+                ]}
+                onLongPress={() => {
+                    this._onRowLongPress(item)
+                }}
+                underlayColor={item.selected ? 'grey' : 'rgba(230, 240, 240, 0.6)'}
+            >
                 <View>
-                    <Text>
-                        id: {item.id}
-                    </Text>
+                    <View>
+                        <Text>
+                            id: {item.id}
+                        </Text>
+                    </View>
+                    <View>
+                        <Text>
+                            name: {this.state.text}
+                        </Text>
+                    </View>
+                    <View>
+                        <Text>
+                            department: {item.departmentName}
+                        </Text>
+                    </View>
                 </View>
-                <View>
-                    <Text>
-                        name: {item.name}
-                    </Text>
-                </View>
-                <View>
-                    <Text>
-                        department: {item.departmentName}
-                    </Text>
-                </View>
-            </View>
+            </TouchableHighlight>
         )
+    }
+
+    _onRowLongPress(item) {
+        itemIndex = updatedData.findIndex(dataItem => item.id == dataItem.id);
+        updatedData = [
+            ...updatedData.slice(0, itemIndex),
+            {
+                ...item,
+                selected: !item.selected
+            },
+            ...updatedData.slice(itemIndex + 1, updatedData.length)
+        ];
+        this.setState({
+            dataSource: this.state.dataSource.cloneWithRows(updatedData)
+        })
     }
 
     _renderRowDropContainer(rowIndex) {
