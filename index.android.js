@@ -10,11 +10,16 @@ import {
   Animated
 } from 'react-native';
 import data from './mock/data.js';
+import reactMixin from 'react-mixin';
+import timerMixin from 'react-timer-mixin';
 
+//should be called on render rather than caching the value, it may change e.g. due to rotation
 let Window = Dimensions.get('window');
 const rowHeight = 60;
 const dropContainerHeight = 40;
 const rowDropEnableHeight = rowHeight / 2;
+const draggableHeight = 30;
+const scrollOffset = 2;
 
 updatedData = data.map((item, index) => {
     return {
@@ -22,8 +27,6 @@ updatedData = data.map((item, index) => {
         index: index
     }
 })
-
-console.log(updatedData);
 
 class dragDropExample extends Component {
     constructor() {
@@ -49,41 +52,64 @@ class dragDropExample extends Component {
         this._panResponderCreate();
         this.layoutMap = [];
         this._bindFunctions();
+        this.totalScrollOffSet = 0;
+    }
+
+    _moveDropRowContainer(gestureState) {
+        this.state.pan.setValue({
+            x: gestureState.moveX,
+            y: gestureState.moveY
+        });
+        if ((this.layoutMap.length > 0) ) {
+                //TODO - implement on the basis of layoutMap or get row present on the top
+                let dropIndex = Math.floor(((gestureState.moveY - rowDropEnableHeight) / rowHeight) + 1);
+                 if ((this.state.currDropRowIndex != dropIndex) ||
+                    (this.state.currDropRowIndex != this.state.prevDropRowIndex)) {
+                    this.setState({
+                        prevDropRowIndex: this.state.currDropRowIndex,
+                        currDropRowIndex:  dropIndex,
+                        dataSource: this.state.dataSource.cloneWithRows(updatedData)
+                    })
+                 }
+        } else if (this.state.currDropRowIndex != -1) {
+            this.setState({
+                prevDropRowIndex: -1,
+                currDropRowIndex: -1,
+                dataSource: this.state.dataSource.cloneWithRows(updatedData)
+            })
+        }
     }
 
     _panResponderCreate() {
         this._panResponder = PanResponder.create({
             onStartShouldSetPanResponder: () => true,
             onPanResponderMove: (e, gestureState) => {
-                this.state.pan.setValue({
-                    x: gestureState.moveX,
-                    y: gestureState.moveY
-                });
-                if ((this.layoutMap.length > 0) &&
-                    ((this.layoutMap.length * rowHeight) > (gestureState.moveY + rowHeight - rowDropEnableHeight))) {
-                        let dropIndex = Math.floor(((gestureState.moveY - rowDropEnableHeight) / rowHeight) + 1);
-                        console.log(this.state.currDropRowIndex, dropIndex)
-                         if ((this.state.currDropRowIndex != dropIndex) ||
-                            (this.state.currDropRowIndex != this.state.prevDropRowIndex)) {
-                            this.setState({
-                                prevDropRowIndex: this.state.currDropRowIndex,
-                                currDropRowIndex:  dropIndex,
-                                dataSource: this.state.dataSource.cloneWithRows(updatedData)
-                            })
-                         }
-                } else if (this.state.currDropRowIndex != -1) {
-                    this.setState({
-                        prevDropRowIndex: -1,
-                        currDropRowIndex: -1,
-                        dataSource: this.state.dataSource.cloneWithRows(updatedData)
-                    })
+                if (gestureState.moveY + draggableHeight > Dimensions.get('window').height) {
+                    if (!this._autoScrollingInterval) {
+                        this._autoScrollingInterval =  this.setInterval(() => {
+                            this.totalScrollOffSet += scrollOffset;
+                            this.listView.scrollTo({
+                                y: this.totalScrollOffSet,
+                                animated: true
+                            });
+                            this.moveDropRowContainer(gestureState);
+                        }, 50);
+                    }
+                    return;
                 }
+                this.moveDropRowContainer(gestureState);
             },
             onPanResponderStart: (e, gestureState) => {
                 this.state.pan.setOffset({
                     x: -e.nativeEvent.locationX,
                     y: -e.nativeEvent.locationY
                 });
+            },
+            onPanResponderRelease: () => {
+                if (this._autoScrollingInterval) {
+                    clearInterval(this._autoScrollingInterval);
+                    this._autoScrollingInterval = null;
+                }
             }
         });
     }
@@ -94,6 +120,7 @@ class dragDropExample extends Component {
         this.logLayoutAndReturnNull = this._logLayoutAndReturnNull.bind(this);
         this.renderRowDropContainer = this._renderRowDropContainer.bind(this);
         this.renderActualRow = this._renderActualRow.bind(this);
+        this.moveDropRowContainer = this._moveDropRowContainer.bind(this);
     }
 
     render() {
@@ -111,6 +138,7 @@ class dragDropExample extends Component {
                 <ListView
                     dataSource={this.state.dataSource}
                     renderRow={this.renderRow}
+                    ref={el => {this.listView = el}}
                 />
             </View>
         )
@@ -183,12 +211,10 @@ class dragDropExample extends Component {
     }
 
     _rowLayout(e, index) {
-        console.log(index, e.nativeEvent.layout);
         this.layoutMap[index] = e.nativeEvent.layout
     }
 
     _logLayoutAndReturnNull(index) {
-        console.log('layout', this.layoutMap[index]);
         return null;
     }
 
@@ -202,12 +228,12 @@ const styles = StyleSheet.create({
     },
     draggable: {
         position: 'absolute',
-        backgroundColor: '#FAECF7',
+        backgroundColor: 'rgb(210, 180, 180)',
         width: 150,
-        height: 30
+        height: draggableHeight
     },
     listItemContainer: {
-        backgroundColor: 'rgb(240, 240, 240)',
+        backgroundColor: 'rgb(230, 240, 240)',
         alignItems: 'flex-start',
         marginBottom: 2,
         paddingLeft: 5,
@@ -224,5 +250,7 @@ const styles = StyleSheet.create({
         alignItems: 'stretch'
     }
 });
+
+reactMixin(dragDropExample.prototype, timerMixin);
 
 AppRegistry.registerComponent('dragDropExample', () => dragDropExample);
