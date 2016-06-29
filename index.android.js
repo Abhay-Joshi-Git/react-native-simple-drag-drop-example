@@ -93,7 +93,7 @@ class dragDropExample extends Component {
                                 animated: true
                             });
                             this.moveDropRowContainer(gestureState);
-                        }, 50);
+                        }, 10);
                     }
                     return;
                 }
