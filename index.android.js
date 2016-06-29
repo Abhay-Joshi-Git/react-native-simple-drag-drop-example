@@ -19,7 +19,7 @@ const rowHeight = 60;
 const dropContainerHeight = 40;
 const rowDropEnableHeight = rowHeight / 2;
 const draggableHeight = 30;
-const scrollOffset = 2;
+var scrollOffset = 2;
 const scrollGutter = 10;
 
 updatedData = data.map((item, index) => {
@@ -57,10 +57,13 @@ class dragDropExample extends Component {
     }
 
     _moveDropRowContainer(gestureState) {
-        this.state.pan.setValue({
-            x: gestureState.moveX,
-            y: gestureState.moveY
-        });
+        if (((gestureState.moveY + draggableHeight + scrollGutter) < Dimensions.get('window').height) &&
+        ((gestureState.moveY - scrollGutter) > 0)){
+            this.state.pan.setValue({
+                x: gestureState.moveX,
+                y: gestureState.moveY
+            });
+        } 
         if ((this.layoutMap.length > 0) ) {
                 //TODO - implement on the basis of layoutMap or get row present on the top
                 let dropIndex = Math.ceil((gestureState.moveY - rowDropEnableHeight + this.totalScrollOffSet) / rowHeight);
@@ -88,9 +91,19 @@ class dragDropExample extends Component {
                 var scrollDown = (gestureState.moveY + draggableHeight + scrollGutter) > Dimensions.get('window').height;
                 var scrollUp = ((gestureState.moveY - scrollGutter) < 0) && (this.totalScrollOffSet > 0);
                 if (scrollDown || scrollUp) {
+                    let scrollIntensityOffset = scrollOffset;
+                    if (scrollDown) {
+                        scrollIntensityOffset =  gestureState.moveY - Dimensions.get('window').height - 10;
+                    } else {
+                        scrollIntensityOffset =  gestureState.moveY - 0;
+                    }
+                    if (scrollIntensityOffset < scrollOffset) {
+                        scrollIntensityOffset = scrollOffset
+                    }
+
                     if (!this._autoScrollingInterval) {
                         this._autoScrollingInterval =  this.setInterval(() => {
-                            this.totalScrollOffSet += scrollDown ? scrollOffset : (-scrollOffset);
+                            this.totalScrollOffSet += scrollDown ? scrollIntensityOffset : (-scrollIntensityOffset);
                             this.listView.scrollTo({
                                 y: this.totalScrollOffSet,
                                 animated: true
