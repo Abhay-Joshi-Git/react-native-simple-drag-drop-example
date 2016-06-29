@@ -20,6 +20,7 @@ const dropContainerHeight = 40;
 const rowDropEnableHeight = rowHeight / 2;
 const draggableHeight = 30;
 const scrollOffset = 2;
+const scrollGutter = 10;
 
 updatedData = data.map((item, index) => {
     return {
@@ -62,15 +63,15 @@ class dragDropExample extends Component {
         });
         if ((this.layoutMap.length > 0) ) {
                 //TODO - implement on the basis of layoutMap or get row present on the top
-                let dropIndex = Math.floor(((gestureState.moveY - rowDropEnableHeight) / rowHeight) + 1);
-                 if ((this.state.currDropRowIndex != dropIndex) ||
-                    (this.state.currDropRowIndex != this.state.prevDropRowIndex)) {
-                    this.setState({
-                        prevDropRowIndex: this.state.currDropRowIndex,
-                        currDropRowIndex:  dropIndex,
-                        dataSource: this.state.dataSource.cloneWithRows(updatedData)
-                    })
-                 }
+                let dropIndex = Math.ceil((gestureState.moveY - rowDropEnableHeight + this.totalScrollOffSet) / rowHeight);
+                if ((this.state.currDropRowIndex != dropIndex) ||
+                   (this.state.currDropRowIndex != this.state.prevDropRowIndex)) {
+                   this.setState({
+                       prevDropRowIndex: this.state.currDropRowIndex,
+                       currDropRowIndex:  dropIndex,
+                       dataSource: this.state.dataSource.cloneWithRows(updatedData)
+                   })
+                }
         } else if (this.state.currDropRowIndex != -1) {
             this.setState({
                 prevDropRowIndex: -1,
@@ -84,18 +85,23 @@ class dragDropExample extends Component {
         this._panResponder = PanResponder.create({
             onStartShouldSetPanResponder: () => true,
             onPanResponderMove: (e, gestureState) => {
-                if (gestureState.moveY + draggableHeight > Dimensions.get('window').height) {
+                var scrollDown = (gestureState.moveY + draggableHeight + scrollGutter) > Dimensions.get('window').height;
+                var scrollUp = ((gestureState.moveY - scrollGutter) < 0) && (this.totalScrollOffSet > 0);
+                if (scrollDown || scrollUp) {
                     if (!this._autoScrollingInterval) {
                         this._autoScrollingInterval =  this.setInterval(() => {
-                            this.totalScrollOffSet += scrollOffset;
+                            this.totalScrollOffSet += scrollDown ? scrollOffset : (-scrollOffset);
                             this.listView.scrollTo({
                                 y: this.totalScrollOffSet,
                                 animated: true
                             });
                             this.moveDropRowContainer(gestureState);
-                        }, 10);
+                        }, 20);
                     }
                     return;
+                } else if (this._autoScrollingInterval) {
+                    clearInterval(this._autoScrollingInterval);
+                    this._autoScrollingInterval = null;
                 }
                 this.moveDropRowContainer(gestureState);
             },
