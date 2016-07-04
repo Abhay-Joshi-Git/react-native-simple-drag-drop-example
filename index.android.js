@@ -45,17 +45,24 @@ class dragDropExample extends Component {
 
         this.state = {
             dataSource: ds.cloneWithRows(updatedData),
-            pan: new Animated.ValueXY({
-                x: 10,
-                y: Window.height - 60
-            }),
+            pan: new Animated.ValueXY(this._getDraggableDefaultPosition()),
             prevDropRowIndex: -1,
             currDropRowIndex: -1
         }
         this._panResponderCreate();
+        this._listViewPanResponderCreate();
+        this._listViewItemPanResponderCreate();
+
         this.layoutMap = [];
         this._bindFunctions();
         this.totalScrollOffSet = 0;
+    }
+
+    _getDraggableDefaultPosition() {
+        return {
+            x: 10,
+            y: Window.height - 60
+        };
     }
 
     _moveDropRowContainer(gestureState) {
@@ -86,9 +93,25 @@ class dragDropExample extends Component {
         }
     }
 
+    _listViewPanResponderCreate() {
+        this._listViewPanResponder = PanResponder.create({
+            onPanResponderTerminationRequest: () => true
+        })
+    }
+
+    _listViewItemPanResponderCreate() {
+        this._listViewItemPanResponder = PanResponder.create({
+            onPanResponderTerminationRequest: () => true
+        })
+    }
+
     _panResponderCreate() {
         this._panResponder = PanResponder.create({
             onStartShouldSetPanResponder: () => true,
+            onMoveShouldSetPanResponder: () => true,
+            onMoveShouldSetPanResponderCapture: () => true,
+            onStartShouldSetPanResponderCapture: () => true,
+            onPanResponderTerminationRequest: () => false,
             onPanResponderMove: (e, gestureState) => {
                 var scrollDown = (gestureState.moveY + draggableHeight + scrollGutter) > Dimensions.get('window').height;
                 var scrollUp = ((gestureState.moveY - scrollGutter) < 0) && (this.totalScrollOffSet > 0);
@@ -126,6 +149,12 @@ class dragDropExample extends Component {
                     y: -e.nativeEvent.locationY
                 });
             },
+            onPanResponderReject: (e, gestureState) => {
+                this.state.pan.setValue({
+                    x: 40,
+                    y: 40
+                });
+            },
             onPanResponderRelease: () => {
                 if (this._autoScrollingInterval) {
                     clearInterval(this._autoScrollingInterval);
@@ -136,6 +165,8 @@ class dragDropExample extends Component {
     }
 
     _bindFunctions() {
+        this.getListView = this._getListView.bind(this);
+        this.getDraggableContainerView = this._getDraggableContainerView.bind(this);
         this.renderRow = this._renderRow.bind(this);
         this.rowLayout = this._rowLayout.bind(this);
         this.logLayoutAndReturnNull = this._logLayoutAndReturnNull.bind(this);
@@ -147,8 +178,8 @@ class dragDropExample extends Component {
     render() {
         return (
             <View style={styles.container}>
-                {this._getListView()}
-                {this._getDraggableContainerView()}
+                {this.getListView()}
+                {this.getDraggableContainerView()}
             </View>
         )
     }
@@ -160,22 +191,32 @@ class dragDropExample extends Component {
                     dataSource={this.state.dataSource}
                     renderRow={this.renderRow}
                     ref={el => {this.listView = el}}
+                    {...this._listViewPanResponder.panHandlers}
                 />
             </View>
         )
     }
 
     _getDraggableContainerView() {
-        return (
-            <Animated.View
-                style={[this.state.pan.getLayout(), styles.draggable]}
-                 {...this._panResponder.panHandlers}
-            >
-                <Text>
-                    Selected Item : 2
-                </Text>
-            </Animated.View>
-        )
+        let selectedCount = this._getSelectedCount();
+        if (selectedCount > 0) {
+            return (
+                <Animated.View
+                    style={[this.state.pan.getLayout(), styles.draggable]}
+                     {...this._panResponder.panHandlers}
+                >
+                    <Text>
+                        Selected Item : {selectedCount}
+                    </Text>
+                </Animated.View>
+            )
+        } else {
+            return null
+        }
+    }
+
+    _getSelectedCount() {
+        return updatedData.filter(item => item.selected).length;
     }
 
     _renderRow(item, section, index) {
@@ -204,7 +245,11 @@ class dragDropExample extends Component {
                 onLongPress={() => {
                     this._onRowLongPress(item)
                 }}
+                onPressOut={() => {
+                    this._onRowPressOut()
+                }}
                 underlayColor={item.selected ? 'grey' : 'rgba(230, 240, 240, 0.6)'}
+                {...this._listViewItemPanResponder.panHandlers}
             >
                 <View>
                     <View>
@@ -228,7 +273,10 @@ class dragDropExample extends Component {
     }
 
     _onRowLongPress(item) {
+        let selectedCount = this._getSelectedCount();
+
         itemIndex = updatedData.findIndex(dataItem => item.id == dataItem.id);
+
         updatedData = [
             ...updatedData.slice(0, itemIndex),
             {
@@ -237,9 +285,20 @@ class dragDropExample extends Component {
             },
             ...updatedData.slice(itemIndex + 1, updatedData.length)
         ];
+        let layout = this.layoutMap[item.index];
+        if (selectedCount <= 0) {
+            this.state.pan.setValue({
+                x: this.state.pan.x._value,
+                y: layout.y + (rowHeight /2) - (draggableHeight/2)
+            });
+        }
         this.setState({
-            dataSource: this.state.dataSource.cloneWithRows(updatedData)
-        })
+            dataSource: this.state.dataSource.cloneWithRows(updatedData),
+        });
+    }
+
+    _onRowPressOut() {
+        this.state.pan.setValue(this._getDraggableDefaultPosition());
     }
 
     _renderRowDropContainer(rowIndex) {
