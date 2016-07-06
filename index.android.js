@@ -213,6 +213,7 @@ class dragDropExample extends Component {
         this.renderRowDropContainer = this._renderRowDropContainer.bind(this);
         this.renderActualRow = this._renderActualRow.bind(this);
         this.moveDropRowContainer = this._moveDropRowContainer.bind(this);
+        this.onListViewScroll = this._onListViewScroll.bind(this);
     }
 
     render() {
@@ -239,9 +240,14 @@ class dragDropExample extends Component {
                     renderRow={this.renderRow}
                     ref={el => {this.listView = el}}
                     {...this._listViewPanResponder.panHandlers}
+                    onScroll={this.onListViewScroll}
                 />
             </View>
         )
+    }
+
+    _onListViewScroll(e) {
+        this.totalScrollOffSet = e.nativeEvent.contentOffset.y;
     }
 
     _getDraggableContainerView(options) {
@@ -263,7 +269,7 @@ class dragDropExample extends Component {
                     <TouchableHighlight
                         onLongPress={(e) => {
                             var touchYCoordinate = e.touchHistory.touchBank[0].startPageY;
-                            var index = this._getRowIndexByY(touchYCoordinate);
+                            var index = this._getRowIndexByY(touchYCoordinate + this.totalScrollOffSet);
 
                             updatedData = [
                                 ...updatedData.slice(0, index),
