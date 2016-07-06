@@ -19,11 +19,12 @@ let Window = Dimensions.get('window');
 const rowHeight = 60;
 const dropContainerHeight = 40;
 const rowDropEnableHeight = rowHeight / 2;
-const draggableHeight = 30;
+const defaultDraggableHeight = 30;
 var scrollOffset = 2;
 const scrollGutter = 10;
+const defaultDraggableWidth = 30;
 
-const defaultAnimatedOpacity = 0; //for experimets
+const defaultDraggableOpacity = 0.4; //for experimets
 
 updatedData = data.map((item, index) => {
     return {
@@ -51,7 +52,9 @@ class dragDropExample extends Component {
             prevDropRowIndex: -1,
             currDropRowIndex: -1,
             selectedRowIndex: new Animated.Value(-1),
-            animatedOpacityMap: this._getAnimatedOpacityMap()
+            draggableOpacity: new Animated.Value(defaultDraggableOpacity),
+            draggableHeight: new Animated.Value(Window.height),
+            draggableTop: new Animated.Value(0)
         }
 
         this._responderCreate();
@@ -66,18 +69,20 @@ class dragDropExample extends Component {
     }
 
     _getDefaultPanValueMap() {
-        return updatedData.map((item, index) => {
+        // return updatedData.map((item, index) => {
             return new Animated.ValueXY({
-                x: 20,
-                y: (index + 1) * 100
+                x: 0,
+                y: 0
             })
-        })
-    }
+        // })
 
-    _getAnimatedOpacityMap() {
-        return updatedData.map((item, index) => {
-            return new Animated.Value(defaultAnimatedOpacity)
-        })
+
+        // return updatedData.map((item, index) => {
+        //     return new Animated.ValueXY({
+        //         x: 20,
+        //         y: (index + 1) * 100
+        //     })
+        // })
     }
 
     _getDraggableDefaultPosition() {
@@ -88,10 +93,10 @@ class dragDropExample extends Component {
     }
 
     _draggablePanResponderCreate() {
-        this._panResponderMap = updatedData.map(item => {
-            return PanResponder.create({
+        // this._panResponderMap = updatedData.map(item => {
+            this._panResponderMap = PanResponder.create({
                 onStartShouldSetPanResponder: () => {
-                    return true
+                    return true//((this.state.selectedRowIndex._value != -1))
                 },
                 onMoveShouldSetPanResponder: () => {
                     return ((this.state.selectedRowIndex._value != -1))
@@ -103,7 +108,7 @@ class dragDropExample extends Component {
                     return (this.state.selectedRowIndex._value != -1)
                 },
                 onPanResponderMove: (e, gestureState) => {
-                    var scrollDown = (gestureState.moveY + draggableHeight + scrollGutter) > Dimensions.get('window').height;
+                    var scrollDown = (gestureState.moveY + defaultDraggableHeight + scrollGutter) > Dimensions.get('window').height;
                     var scrollUp = ((gestureState.moveY - scrollGutter) < 0) && (this.totalScrollOffSet > 0);
                     if (scrollDown || scrollUp && false) {
                         let scrollIntensityOffset = scrollOffset;
@@ -124,7 +129,7 @@ class dragDropExample extends Component {
                                     animated: true
                                 });
                                 this.moveDropRowContainer(gestureState, {
-                                    pan: this.state.panValueMap[item.index]
+                                    pan: this.state.panValueMap//[item.index]
                                 });
                             }, 20);
                         }
@@ -134,15 +139,19 @@ class dragDropExample extends Component {
                         this._autoScrollingInterval = null;
                     }
                     this.moveDropRowContainer(gestureState, {
-                        pan: this.state.panValueMap[item.index]
+                        pan: this.state.panValueMap//[item.index]
                     });
                 },
                 onPanResponderStart: (e, gestureState) => {
                     console.log('pan responder start - ', e.nativeEvent);
-                    this.state.panValueMap[item.index].setOffset({
-                        x: -e.nativeEvent.locationX,
-                        y: -e.nativeEvent.locationY
-                    });
+                    if (this.state.selectedRowIndex._value == -1) {
+                        this.state.selectedRowIndex.setValue(0);
+                    } else {
+                        this.state.panValueMap.setOffset({
+                            x: -e.nativeEvent.locationX,
+                            y: -e.nativeEvent.locationY
+                        });
+                    }
                 },
                 onPanResponderRelease: () => {
                     if (this._autoScrollingInterval) {
@@ -151,11 +160,11 @@ class dragDropExample extends Component {
                     }
                 }
             })
-        })
+        // })
     }
 
     _moveDropRowContainer(gestureState, options) {
-        if (((gestureState.moveY + draggableHeight + scrollGutter) < Dimensions.get('window').height) &&
+        if (((gestureState.moveY + defaultDraggableHeight + scrollGutter) < Dimensions.get('window').height) &&
         ((gestureState.moveY - scrollGutter) > 0)){
             options.pan.setValue({
                 x: gestureState.moveX,
@@ -210,13 +219,13 @@ class dragDropExample extends Component {
         return (
             <View style={styles.container}>
                 {this.getListView()}
-                {updatedData.map((item, index) => {
-                    return this.getDraggableContainerView({
-                            pan: this.state.panValueMap[index],
-                            panResponder: this._panResponderMap[index],
-                            index: index
+                {
+                    this.getDraggableContainerView({
+                            pan: this.state.panValueMap,
+                            panResponder: this._panResponderMap,//[index],
+                            index: 0
                         })
-                })}
+                }
 
             </View>
         )
@@ -242,21 +251,45 @@ class dragDropExample extends Component {
             return (
                 <Animated.View
                     style={[options.pan.getLayout(), styles.draggable, {
-                        opacity: this.state.animatedOpacityMap[options.index]
+                        opacity: this.state.draggableOpacity,//Map[options.index],
+                        height: this.state.draggableHeight,//(this.state.selectedRowIndex._value == -1) ?  Window.height : styles.draggable.height,
+                        width: defaultDraggableWidth,//(this.state.selectedRowIndex._value == -1) ? 100 : styles.draggable.width,
+                        //top: this.state.draggableTop
                     }]}
                     {...options.panResponder.panHandlers}
                      ref={(el) => {this._draggableElement = el}}
                      key={options.index}
                 >
                     <TouchableHighlight
-                        onLongPress={() => {
+                        onLongPress={(e) => {
+                            var index = 0;
+                            updatedData = [
+                                ...updatedData.slice(0, index),
+                                {
+                                    ...updatedData[index],
+                                    selected: !updatedData[index].selected
+                                },
+                                ...updatedData.slice(options.index + 1, updatedData.length)
+                            ];
+
                             this.setState({
-                                someText: 'changed in draggable long press'
+                                dataSource: this.state.dataSource.cloneWithRows(updatedData)
                             })
-                            this.state.selectedRowIndex.setValue(options.index)
-                            this.state.animatedOpacityMap[options.index].setValue(1)
+                            this.state.selectedRowIndex.setValue(index)
+                            this.state.draggableOpacity.setValue(1)//Map[options.index].setValue(1)
+                            this.state.draggableHeight.setValue(defaultDraggableHeight)
+                            //this.state.draggableTop.setValue(e.touchHistory.touchBank[0].startPageY)
+                            this.state.panValueMap.setValue({
+                                y: e.touchHistory.touchBank[0].startPageY
+                            })
                         }}
-                        style={{height: 80}}
+                        onPress={(e) => {
+                            console.log('in on press - with index -', options.index, e.touchHistory);
+                            this.state.selectedRowIndex.setValue(options.index)
+                        }}
+                        style={{
+                            height: this.state.draggableHeight._value
+                        }}
                     >
                         <View>
                             <Text>
@@ -283,7 +316,7 @@ class dragDropExample extends Component {
                     marginBottom: 2,
                     height: (index == this.state.currDropRowIndex) ? rowHeight + dropContainerHeight : rowHeight
                 }}
-                onLayout={(e) => this._rowLayout(e, index)}
+                //onLayout={(e) => this._rowLayout(e, index)}
             >
                 {this.renderRowDropContainer(index)}
                 {this.renderActualRow(item, index)}
@@ -302,6 +335,9 @@ class dragDropExample extends Component {
                 ]}
                 onLongPress={() => {
                     this._onRowLongPress(item)
+                }}
+                onPress={() => {
+                    console.log('in press of actual row')
                 }}
                 underlayColor={item.selected ? 'grey' : 'rgba(230, 240, 240, 0.6)'}
                 {...this._listViewItemPanResponder.panHandlers}
@@ -341,7 +377,7 @@ class dragDropExample extends Component {
             ...updatedData.slice(itemIndex + 1, updatedData.length)
         ];
         this.state.selectedRowIndex.setValue(itemIndex)
-        this.state.animatedOpacityMap[itemIndex].setValue(1)
+        this.state.draggableOpacity.setValue(1)//Map[itemIndex]
         this.setState({
             dataSource: this.state.dataSource.cloneWithRows(updatedData),
         });
@@ -369,7 +405,7 @@ class dragDropExample extends Component {
 
     _rowLayout(e, index) {
         if (this.state.selectedRowIndex._value == -1) {
-            this.state.panValueMap[index].setValue({
+            this.state.panValueMap.setValue({
                 x: e.nativeEvent.layout.x,
                 y: e.nativeEvent.layout.y
             });
@@ -392,7 +428,7 @@ const styles = StyleSheet.create({
         position: 'absolute',
         backgroundColor: 'rgb(210, 180, 180)',
         width: 150,
-        height: draggableHeight
+        height: defaultDraggableHeight
     },
     listItemContainer: {
         backgroundColor: 'rgb(230, 240, 240)',
