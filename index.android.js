@@ -56,7 +56,7 @@ class dragDropExample extends Component {
             draggableHeight: new Animated.Value(Window.height),
             draggableTop: new Animated.Value(0)
         }
-
+        this.layoutMap = [];
         this._responderCreate();
         this._bindFunctions();
         this.totalScrollOffSet = 0;
@@ -144,7 +144,7 @@ class dragDropExample extends Component {
                 },
                 onPanResponderStart: (e, gestureState) => {
                     console.log('pan responder start - ', e.nativeEvent);
-                    if (this.state.selectedRowIndex._value == -1) {
+                    if ((this.state.selectedRowIndex._value == -1) && false) {
                         this.state.selectedRowIndex.setValue(0);
                     } else {
                         this.state.panValueMap.setOffset({
@@ -262,14 +262,16 @@ class dragDropExample extends Component {
                 >
                     <TouchableHighlight
                         onLongPress={(e) => {
-                            var index = 0;
+                            var touchYCoordinate = e.touchHistory.touchBank[0].startPageY;
+                            var index = this._getRowIndexByY(touchYCoordinate);
+
                             updatedData = [
                                 ...updatedData.slice(0, index),
                                 {
                                     ...updatedData[index],
                                     selected: !updatedData[index].selected
                                 },
-                                ...updatedData.slice(options.index + 1, updatedData.length)
+                                ...updatedData.slice(index + 1, updatedData.length)
                             ];
 
                             this.setState({
@@ -280,7 +282,7 @@ class dragDropExample extends Component {
                             this.state.draggableHeight.setValue(defaultDraggableHeight)
                             //this.state.draggableTop.setValue(e.touchHistory.touchBank[0].startPageY)
                             this.state.panValueMap.setValue({
-                                y: e.touchHistory.touchBank[0].startPageY
+                                y: touchYCoordinate
                             })
                         }}
                         onPress={(e) => {
@@ -304,6 +306,17 @@ class dragDropExample extends Component {
         }
     }
 
+    _getRowIndexByY(y) {
+        var rowIndex = 0;
+        for (var i = 0; i < this.layoutMap.length; i++) {
+            if ((this.layoutMap[i].y <= y) && ((this.layoutMap[i].y + rowHeight) > y)) {
+                rowIndex = i;
+                break;
+            }
+        }
+        return rowIndex;
+    }
+
     _getSelectedCount() {
         return updatedData.filter(item => item.selected).length;
     }
@@ -316,7 +329,7 @@ class dragDropExample extends Component {
                     marginBottom: 2,
                     height: (index == this.state.currDropRowIndex) ? rowHeight + dropContainerHeight : rowHeight
                 }}
-                //onLayout={(e) => this._rowLayout(e, index)}
+                onLayout={(e) => this._rowLayout(e, index)}
             >
                 {this.renderRowDropContainer(index)}
                 {this.renderActualRow(item, index)}
@@ -404,12 +417,7 @@ class dragDropExample extends Component {
     }
 
     _rowLayout(e, index) {
-        if (this.state.selectedRowIndex._value == -1) {
-            this.state.panValueMap.setValue({
-                x: e.nativeEvent.layout.x,
-                y: e.nativeEvent.layout.y
-            });
-        }
+        this.layoutMap[index] = e.nativeEvent.layout
     }
 
     _logLayoutAndReturnNull(index) {
