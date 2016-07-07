@@ -24,7 +24,7 @@ var scrollOffset = 2;
 const scrollGutter = 10;
 const defaultDraggableWidth = Window.width;
 
-const defaultDraggableOpacity = 0.4; //for experimets
+const defaultDraggableOpacity = 0; //for experimets
 
 updatedData = data.map((item, index) => {
     return {
@@ -111,13 +111,17 @@ class dragDropExample extends Component {
                 },
                 onPanResponderMove: (e, gestureState) => {
                     if ((this.state.selectedRowIndex._value == -1)) {
-                        this.panStartDraggable = false;
-                        if (this.panStartTimeoutReference) {
-                            this.clearTimeout(this.panStartTimeoutReference);
-                            this.panStartTimeoutReference = null;
+                        var movement = gestureState.y0 - gestureState.moveY;
+                        if (Math.abs(movement) > 50) {
+                            this.panStartDraggable = false;
+                            if (this.panStartTimeoutReference) {
+                                this.clearTimeout(this.panStartTimeoutReference);
+                                this.panStartTimeoutReference = null;
+                            }
+                        } else {
+                            return
                         }
 
-                        var movement = gestureState.y0 - gestureState.moveY;
                         var scrollTo = this.moveStartOffset + movement;
                         console.log('move - ', this.totalScrollOffSet, gestureState, scrollTo);
                         this.listView.scrollTo({
