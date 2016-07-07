@@ -39,6 +39,7 @@ const DRAGGABLE_WIDTH_ON_APPEARANCE = 200;
 const DRAGGABLE_OPACITY_ON_APPEARANCE = 0.5;
 const DRAGGABLE_WIDTH_DEFAULT = 300;
 const DRAGGABLE_OPACITY_DEFAULT = 0; //for experimets
+const DRAGGABLE_OPACITY_FINAL = 0; //for experimets
 
 updatedData = data.map((item, index) => {
     return {
@@ -62,7 +63,7 @@ class dragDropExample extends Component {
 
         this.state = {
             dataSource: ds.cloneWithRows(updatedData),
-            panValueMap: this._getDefaultPanValueMap(),
+            pan: this._getDefaultpan(),
             prevDropRowIndex: -1,
             currDropRowIndex: -1,
             selectedRowIndex: new Animated.Value(-1),
@@ -75,8 +76,8 @@ class dragDropExample extends Component {
         this._bindFunctions();
         this.totalScrollOffset = 0;
         this.moveStartOffset = 0;
-        this.panStartDraggable = false;
-        this.panStartTimeoutReference = null;
+        this.draagablePanStartRespond = false;
+        this.draggablePanStartRespondTimeoutReference = null;
     }
 
     _responderCreate() {
@@ -85,21 +86,11 @@ class dragDropExample extends Component {
         this._listViewItemPanResponderCreate();
     }
 
-    _getDefaultPanValueMap() {
-        // return updatedData.map((item, index) => {
-            return new Animated.ValueXY({
-                x: 0,
-                y: 0
-            })
-        // })
-
-
-        // return updatedData.map((item, index) => {
-        //     return new Animated.ValueXY({
-        //         x: 20,
-        //         y: (index + 1) * 100
-        //     })
-        // })
+    _getDefaultpan() {
+        return new Animated.ValueXY({
+            x: 0,
+            y: 0
+        })
     }
 
     _getDraggableDefaultPosition() {
@@ -121,16 +112,16 @@ class dragDropExample extends Component {
                     return ((this.state.selectedRowIndex._value != -1))
                 },
                 onStartShouldSetPanResponderCapture: () => {
-                    return true//(this.state.selectedRowIndex._value != -1)
+                    return true
                 },
                 onPanResponderMove: (e, gestureState) => {
                     if ((this.state.selectedRowIndex._value == -1)) {
                         var movement = gestureState.y0 - gestureState.moveY;
                         if (Math.abs(movement) > 50) {
-                            this.panStartDraggable = false;
-                            if (this.panStartTimeoutReference) {
-                                this.clearTimeout(this.panStartTimeoutReference);
-                                this.panStartTimeoutReference = null;
+                            this.draagablePanStartRespond = false;
+                            if (this.draggablePanStartRespondTimeoutReference) {
+                                this.clearTimeout(this.draggablePanStartRespondTimeoutReference);
+                                this.draggablePanStartRespondTimeoutReference = null;
                             }
                         } else {
                             return
@@ -166,7 +157,7 @@ class dragDropExample extends Component {
                                     animated: true
                                 });
                                 this.moveDropRowContainer(gestureState, {
-                                    pan: this.state.panValueMap//[item.index]
+                                    pan: this.state.pan//[item.index]
                                 });
                             }, 20);
                         }
@@ -176,27 +167,23 @@ class dragDropExample extends Component {
                         this._autoScrollingInterval = null;
                     }
                     this.moveDropRowContainer(gestureState, {
-                        pan: this.state.panValueMap//[item.index]
+                        pan: this.state.pan//[item.index]
                     });
                 },
                 onPanResponderStart: (e, gestureState) => {
                     console.log('pan responder start - ', e.nativeEvent);
-                    if ((this.state.selectedRowIndex._value != -1)) {
-                        this.state.panValueMap.setOffset({
+                    if (this.state.selectedRowIndex._value != -1) {
+                        this.state.pan.setOffset({
                             x: -e.nativeEvent.locationX,
                             y: -e.nativeEvent.locationY
                         });
                     } else {
                         var draggableNativeEvent = e.nativeEvent;
                         this.moveStartOffset = this.totalScrollOffset;
-                        this.panStartDraggable = true;
-                        this.panStartTimeoutReference = this.setTimeout(() => {
-                            if (this.panStartDraggable) {
-                                this.panStartDraggable = false;
-                                //fire longpress
-                                // this.state.panValueMap.setOffset({
-                                //     x: -draggableNativeEvent.locationX
-                                // });
+                        this.draagablePanStartRespond = true;
+                        this.draggablePanStartRespondTimeoutReference = this.setTimeout(() => {
+                            if (this.draagablePanStartRespond) {
+                                this.draagablePanStartRespond = false;
                                 this.onDraggableLongPress(gestureState.y0);
                             }
                         }, 1000)
@@ -208,17 +195,21 @@ class dragDropExample extends Component {
                         this.clearInterval(this._autoScrollingInterval);
                         this._autoScrollingInterval = null;
                     }
-                    if (this.panStartTimeoutReference) {
-                        this.clearTimeout(this.panStartTimeoutReference);
-                        this.panStartTimeoutReference = null;
+                    if (this.draggablePanStartRespondTimeoutReference) {
+                        this.clearTimeout(this.draggablePanStartRespondTimeoutReference);
+                        this.draggablePanStartRespondTimeoutReference = null;
                     }
-                    if (this.panStartDraggable) {
-                        this.panStartDraggable = false;
-                        //fire press
+                    if (this.draagablePanStartRespond) {
+                        this.draagablePanStartRespond = false;
                         let index = this._getRowIndexByY(gestureState.y0 + this.totalScrollOffset)//null;
                         if (index) {
                             this._onRowPress(updatedData[index]);
                         }
+                    } else if (this.state.selectedRowIndex._value != -1) {
+                        //set poistion of pan near to bottom
+                        //change width, opacity
+                        this.state.pan.setValue(this._getDraggableDefaultPosition());
+                        this.state.draggableOpacity.setValue(DRAGGABLE_OPACITY_FINAL);
                     }
                 }
             })
@@ -232,7 +223,6 @@ class dragDropExample extends Component {
                 y: gestureState.moveY
             });
         }
-        // if ((this.layoutMap.length > 0) || true) {
         let dropIndex = Math.ceil((gestureState.moveY - ROW_DROP_ENABLE_HEIGHT + this.totalScrollOffset) / ROW_HEIGHT);
         if ((this.state.currDropRowIndex != dropIndex) ||
            (this.state.currDropRowIndex != this.state.prevDropRowIndex)) {
@@ -285,8 +275,8 @@ class dragDropExample extends Component {
                 {this.getListView()}
                 {
                     this.getDraggableContainerView({
-                            pan: this.state.panValueMap,
-                            panResponder: this._panResponderMap,//[index],
+                            pan: this.state.pan,
+                            panResponder: this._panResponderMap,
                             index: 0
                         })
                 }
@@ -320,10 +310,9 @@ class dragDropExample extends Component {
             return (
                 <Animated.View
                     style={[options.pan.getLayout(), styles.draggable, {
-                        opacity: this.state.draggableOpacity,//Map[options.index],
-                        height: this.state.draggableHeight,//(this.state.selectedRowIndex._value == -1) ?  Window.height : styles.draggable.height,
-                        width: DRAGGABLE_WIDTH_DEFAULT,//(this.state.selectedRowIndex._value == -1) ? 100 : styles.draggable.width,
-                        //top: this.state.draggableTop
+                        opacity: this.state.draggableOpacity,
+                        height: this.state.draggableHeight,
+                        width: DRAGGABLE_WIDTH_ON_APPEARANCE,
                     }]}
                     {...options.panResponder.panHandlers}
                      ref={(el) => {this._draggableElement = el}}
@@ -367,10 +356,9 @@ class dragDropExample extends Component {
             dataSource: this.state.dataSource.cloneWithRows(updatedData)
         })
         this.state.selectedRowIndex.setValue(index)
-        this.state.draggableOpacity.setValue(1)//Map[options.index].setValue(1)
+        this.state.draggableOpacity.setValue(DRAGGABLE_OPACITY_ON_APPEARANCE)
         this.state.draggableHeight.setValue(DRAGGABLE_HEIGHT_DEFAULT)
-        //this.state.draggableTop.setValue(e.touchHistory.touchBank[0].startPageY)
-        this.state.panValueMap.setValue({
+        this.state.pan.setValue({
             x: 20,
             y: touchYCoordinate
         })
@@ -472,7 +460,7 @@ class dragDropExample extends Component {
     }
 
     _onRowPressOut(item) {
-        //  this.state.panValueMap[item.index].setValue(this._getDraggableDefaultPosition());
+        //  this.state.pan[item.index].setValue(this._getDraggableDefaultPosition());
     }
 
     _renderRowDropContainer(rowIndex) {
