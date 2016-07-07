@@ -1,3 +1,16 @@
+/*
+
+TODO -
+
+1. handle velocity while scrolling on move - see the difference in scrolling when draggable is on and off
+2. opacity and size while long-press
+3. release immediately
+4. release in drop container
+5. multi-select
+6. handle screen rotation - width etc
+7. create component to provide this functionality
+*/
+
 import React, { Component } from 'react';
 import {
   AppRegistry,
@@ -15,16 +28,17 @@ import reactMixin from 'react-mixin';
 import timerMixin from 'react-timer-mixin';
 
 //should be called on render rather than caching the value, it may change e.g. due to rotation
-let Window = Dimensions.get('window');
-const rowHeight = 60;
-const dropContainerHeight = 40;
-const rowDropEnableHeight = rowHeight / 2;
-const defaultDraggableHeight = 30;
-var scrollOffset = 2;
-const scrollGutter = 10;
-const defaultDraggableWidth = Window.width;
-
-const defaultDraggableOpacity = 0; //for experimets
+var Window = Dimensions.get('window');
+const ROW_HEIGHT = 60;
+const DROP_CONTAINER_HEIGHT = 40;
+const ROW_DROP_ENABLE_HEIGHT = ROW_HEIGHT / 2;
+const DRAGGABLE_HEIGHT_DEFAULT = 30;
+const SCROLL_OFFSET = 2;
+const SCROLL_GUTTER = 10;
+const DRAGGABLE_WIDTH_ON_APPEARANCE = 200;
+const DRAGGABLE_OPACITY_ON_APPEARANCE = 0.5;
+const DRAGGABLE_WIDTH_DEFAULT = 300;
+const DRAGGABLE_OPACITY_DEFAULT = 0; //for experimets
 
 updatedData = data.map((item, index) => {
     return {
@@ -52,14 +66,14 @@ class dragDropExample extends Component {
             prevDropRowIndex: -1,
             currDropRowIndex: -1,
             selectedRowIndex: new Animated.Value(-1),
-            draggableOpacity: new Animated.Value(defaultDraggableOpacity),
+            draggableOpacity: new Animated.Value(DRAGGABLE_OPACITY_DEFAULT),
             draggableHeight: new Animated.Value(Window.height),
             draggableTop: new Animated.Value(0)
         }
         this.layoutMap = [];
         this._responderCreate();
         this._bindFunctions();
-        this.totalScrollOffSet = 0;
+        this.totalScrollOffset = 0;
         this.moveStartOffset = 0;
         this.panStartDraggable = false;
         this.panStartTimeoutReference = null;
@@ -123,7 +137,7 @@ class dragDropExample extends Component {
                         }
 
                         var scrollTo = this.moveStartOffset + movement;
-                        console.log('move - ', this.totalScrollOffSet, gestureState, scrollTo);
+                        console.log('move - ', this.totalScrollOffset, gestureState, scrollTo);
                         this.listView.scrollTo({
                             y: scrollTo,
                             animated: true
@@ -131,24 +145,24 @@ class dragDropExample extends Component {
                         return;
                     }
 
-                    var scrollDown = (gestureState.moveY + defaultDraggableHeight + scrollGutter) > Dimensions.get('window').height;
-                    var scrollUp = ((gestureState.moveY - scrollGutter) < 0) && (this.totalScrollOffSet > 0);
+                    var scrollDown = (gestureState.moveY + DRAGGABLE_HEIGHT_DEFAULT + SCROLL_GUTTER) > Dimensions.get('window').height;
+                    var scrollUp = ((gestureState.moveY - SCROLL_GUTTER) < 0) && (this.totalScrollOffset > 0);
                     if (scrollDown || scrollUp && false) {
-                        let scrollIntensityOffset = scrollOffset;
+                        let scrollIntensityOffset = SCROLL_OFFSET;
                         if (scrollDown) {
                             scrollIntensityOffset =  gestureState.moveY - Dimensions.get('window').height - 10;
                         } else {
                             scrollIntensityOffset =  gestureState.moveY - 0;
                         }
-                        if (scrollIntensityOffset < scrollOffset) {
-                            scrollIntensityOffset = scrollOffset
+                        if (scrollIntensityOffset < SCROLL_OFFSET) {
+                            scrollIntensityOffset = SCROLL_OFFSET
                         }
 
                         if (!this._autoScrollingInterval) {
                             this._autoScrollingInterval =  this.setInterval(() => {
-                                this.totalScrollOffSet += scrollDown ? scrollIntensityOffset : (-scrollIntensityOffset);
+                                this.totalScrollOffset += scrollDown ? scrollIntensityOffset : (-scrollIntensityOffset);
                                 this.listView.scrollTo({
-                                    y: this.totalScrollOffSet,
+                                    y: this.totalScrollOffset,
                                     animated: true
                                 });
                                 this.moveDropRowContainer(gestureState, {
@@ -174,7 +188,7 @@ class dragDropExample extends Component {
                         });
                     } else {
                         var draggableNativeEvent = e.nativeEvent;
-                        this.moveStartOffset = this.totalScrollOffSet;
+                        this.moveStartOffset = this.totalScrollOffset;
                         this.panStartDraggable = true;
                         this.panStartTimeoutReference = this.setTimeout(() => {
                             if (this.panStartDraggable) {
@@ -201,7 +215,7 @@ class dragDropExample extends Component {
                     if (this.panStartDraggable) {
                         this.panStartDraggable = false;
                         //fire press
-                        let index = this._getRowIndexByY(gestureState.y0 + this.totalScrollOffSet)//null;
+                        let index = this._getRowIndexByY(gestureState.y0 + this.totalScrollOffset)//null;
                         if (index) {
                             this._onRowPress(updatedData[index]);
                         }
@@ -211,15 +225,15 @@ class dragDropExample extends Component {
     }
 
     _moveDropRowContainer(gestureState, options) {
-        if (((gestureState.moveY + defaultDraggableHeight + scrollGutter) < Dimensions.get('window').height) &&
-        ((gestureState.moveY - scrollGutter) > 0)){
+        if (((gestureState.moveY + DRAGGABLE_HEIGHT_DEFAULT + SCROLL_GUTTER) < Dimensions.get('window').height) &&
+        ((gestureState.moveY - SCROLL_GUTTER) > 0)){
             options.pan.setValue({
                 x: 20,
                 y: gestureState.moveY
             });
         }
         // if ((this.layoutMap.length > 0) || true) {
-        let dropIndex = Math.ceil((gestureState.moveY - rowDropEnableHeight + this.totalScrollOffSet) / rowHeight);
+        let dropIndex = Math.ceil((gestureState.moveY - ROW_DROP_ENABLE_HEIGHT + this.totalScrollOffset) / ROW_HEIGHT);
         if ((this.state.currDropRowIndex != dropIndex) ||
            (this.state.currDropRowIndex != this.state.prevDropRowIndex)) {
            this.setState({
@@ -265,6 +279,7 @@ class dragDropExample extends Component {
     }
 
     render() {
+        Window = Dimensions.get('window');
         return (
             <View style={styles.container}>
                 {this.getListView()}
@@ -295,7 +310,7 @@ class dragDropExample extends Component {
     }
 
     _onListViewScroll(e) {
-        this.totalScrollOffSet = e.nativeEvent.contentOffset.y;
+        this.totalScrollOffset = e.nativeEvent.contentOffset.y;
     }
 
     _getDraggableContainerView(options) {
@@ -307,7 +322,7 @@ class dragDropExample extends Component {
                     style={[options.pan.getLayout(), styles.draggable, {
                         opacity: this.state.draggableOpacity,//Map[options.index],
                         height: this.state.draggableHeight,//(this.state.selectedRowIndex._value == -1) ?  Window.height : styles.draggable.height,
-                        width: defaultDraggableWidth,//(this.state.selectedRowIndex._value == -1) ? 100 : styles.draggable.width,
+                        width: DRAGGABLE_WIDTH_DEFAULT,//(this.state.selectedRowIndex._value == -1) ? 100 : styles.draggable.width,
                         //top: this.state.draggableTop
                     }]}
                     {...options.panResponder.panHandlers}
@@ -337,7 +352,7 @@ class dragDropExample extends Component {
     }
 
     _onDraggableLongPress(touchYCoordinate) {
-        var index = this._getRowIndexByY(touchYCoordinate + this.totalScrollOffSet);
+        var index = this._getRowIndexByY(touchYCoordinate + this.totalScrollOffset);
 
         updatedData = [
             ...updatedData.slice(0, index),
@@ -353,7 +368,7 @@ class dragDropExample extends Component {
         })
         this.state.selectedRowIndex.setValue(index)
         this.state.draggableOpacity.setValue(1)//Map[options.index].setValue(1)
-        this.state.draggableHeight.setValue(defaultDraggableHeight)
+        this.state.draggableHeight.setValue(DRAGGABLE_HEIGHT_DEFAULT)
         //this.state.draggableTop.setValue(e.touchHistory.touchBank[0].startPageY)
         this.state.panValueMap.setValue({
             x: 20,
@@ -365,7 +380,7 @@ class dragDropExample extends Component {
     _getRowIndexByY(y) {
         var rowIndex = 0;
         for (var i = 0; i < this.layoutMap.length; i++) {
-            if ((this.layoutMap[i].y <= y) && ((this.layoutMap[i].y + rowHeight) > y)) {
+            if ((this.layoutMap[i].y <= y) && ((this.layoutMap[i].y + ROW_HEIGHT) > y)) {
                 rowIndex = i;
                 break;
             }
@@ -383,7 +398,7 @@ class dragDropExample extends Component {
                 style={{
                     flex: 1,
                     marginBottom: 2,
-                    height: (index == this.state.currDropRowIndex) ? rowHeight + dropContainerHeight : rowHeight
+                    height: (index == this.state.currDropRowIndex) ? ROW_HEIGHT + DROP_CONTAINER_HEIGHT : ROW_HEIGHT
                 }}
                 onLayout={(e) => this._rowLayout(e, index)}
             >
@@ -496,17 +511,17 @@ const styles = StyleSheet.create({
         position: 'absolute',
         backgroundColor: 'rgb(210, 180, 180)',
         width: 150,
-        height: defaultDraggableHeight
+        height: DRAGGABLE_HEIGHT_DEFAULT
     },
     listItemContainer: {
         backgroundColor: 'rgb(230, 240, 240)',
         alignItems: 'flex-start',
         marginBottom: 2,
         paddingLeft: 5,
-        height: rowHeight
+        height: ROW_HEIGHT
     },
     rowDropContainer: {
-        height: dropContainerHeight
+        height: DROP_CONTAINER_HEIGHT
     },
     rowContainer: {
         flex: 1
